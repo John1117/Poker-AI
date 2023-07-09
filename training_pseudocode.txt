@@ -1,0 +1,77 @@
+# player can be anyone who adopts nn_policy(AI), random_policy, linear_policy and so on
+
+players = [P0, P1,...]
+
+# coll episo of all players using nn_policy in one game
+def coll_episos(game, players):
+
+    episo.init(
+        n_players=game.n_players_using_nn_policy,
+        keys=('obs', 'act', 'act_prob', 'rwd')
+    )
+
+    game.reset()
+    # game is over only when all players receive their rwd
+    while not game.is_over:
+
+        # whose turn to take act or receive rwd
+        # it should skip the folded player(?)
+        i = game.whose_turn
+
+        if players[i].is_using_nn_policy:
+            # done is True if it's turn to receive rwd
+            obs, rwd, done = game.to_player_pov(whose_pov=i)
+            
+            if done:
+                episo[i].add(rwd)
+            
+            else:
+                # if the player still can take act,
+                # it means that he hasn't fold or everyone hasn't showdown
+                # so he receive the rwd from his prev act, which it's zero
+                # but if it is the 1st act of this player,
+                # there will be no rwd since he has no prev act
+                if not player[i].inaction:
+                    episo[i].add(rwd)
+
+                act_distr = players[i].policy(obs)
+                act = act_distr.sample()
+                act_prob = act_distr.prob(act) # record the act_prob to train AI later
+
+                game.nxt(act)
+                episo[i].add(obs, act, act_prob)
+
+    return episo
+
+
+def compute_adv(episo, player):
+    val = player.eval(episo.obs) # eval using val_net
+    nxt_val = val.remove_1st_val_and_add(episo.final_rwd)
+
+    # gamma is the discount factor of future rwd, which should be set to 1 in our case
+    # lambda is the discount factor of discounted temporal diff
+    # where temporal diff = rwd + gamma * nxt_val - val
+    adv, rtn = GAE(epsio.rwd, val, nxt_val, gamma, lambda)
+    episo.add(adv, rtn)
+    return episo
+
+
+# main training loop
+for i_iter in range(n_iter):
+
+    buffer.clear()
+    for _ in range(n_game):
+        episo = coll_episo()
+        buffer.add(episo)
+    
+    for _ in range(n_epoch):
+        for i in range(buffer.n_episo):
+            episo = compute_adv(buffer.pop_episo)
+            buffer.add(episo)
+
+        batch = buffer.sample(batch_size)
+        loss = compute_loss(batch)
+        do_grad(net, loss)
+
+    if time_to_eval_performance:
+        eval_net()
