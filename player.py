@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from env import DEFAULT_DTYPE
 from network import PolicyNetwork, ValueNetwork
-
+from tensordict.nn import TensorDictModule
 
 class RandomPolicy():
     def __init__(self, num_of_act=22, dtype=DEFAULT_DTYPE):
@@ -13,15 +13,16 @@ class RandomPolicy():
         return torch.ones(self.num_of_act, dtype=self.dtype) / self.num_of_act
 
 class Player():
-    def __init__(self, policy_fn, eval_fn=None):
-        self.use_nn = isinstance(policy_fn, PolicyNetwork)
+    def __init__(self, policy_fn, eval_fn=None, use_nn=False):
         self.policy = policy_fn
         self.eval = eval_fn
+        self.use_nn = use_nn
 
 
 if __name__ == '__main__':
     p1 = Player(RandomPolicy())
-    p2 = Player(PolicyNetwork())
+    pn = PolicyNetwork()
+    p2 = Player(TensorDictModule(PolicyNetwork(), in_keys=['observation'], out_keys=['prob']))
 
     obs = torch.rand(26, dtype=DEFAULT_DTYPE)
     a1 = p1.policy(obs)

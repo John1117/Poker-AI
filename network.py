@@ -70,7 +70,7 @@ if __name__=='__main__':
     obs = torch.rand(26)
     pn = PolicyNetwork(hid_arch=(40,40))
     pnm = TensorDictModule(pn, ['obs'], ['act'])
-    print('\n', pnm)
+    print('\n', pnm(obs))
 
     vn = ValueNetwork(hid_arch=(40,40))
     print('\n', vn)

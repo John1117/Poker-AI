@@ -20,11 +20,13 @@ def coll_data(game, player_lst, num_of_coll=1):
         'observation': torch.tensor([], dtype=DEFAULT_DTYPE), 
         'reward': torch.tensor([], dtype=DEFAULT_DTYPE), 
         'done': torch.tensor([], dtype=torch.bool),
+        'step_count': torch.tensor([], dtype=torch.int), 
         'action': torch.tensor([], dtype=torch.int),
         'next': {
             'observation': torch.tensor([], dtype=DEFAULT_DTYPE),
             'reward': torch.tensor([], dtype=DEFAULT_DTYPE), 
-            'done': torch.tensor([], dtype=torch.bool)
+            'done': torch.tensor([], dtype=torch.bool),
+            'step_count': torch.tensor([], dtype=torch.int)
             }
         } for _ in range(num_of_nn_player)]
     
@@ -32,7 +34,7 @@ def coll_data(game, player_lst, num_of_coll=1):
         game.reset()
         while not game.is_over:
             wt = game.whose_turn
-            obs, rwd, done = game.to_player_pov(wt)
+            obs, rwd, done, step = game.to_player_pov(wt)
 
             if player_lst[wt].use_nn:
 
@@ -41,6 +43,7 @@ def coll_data(game, player_lst, num_of_coll=1):
                     dict_lst[idx_map[wt]]['next']['observation'] = torch.cat((dict_lst[idx_map[wt]]['next']['observation'], obs))
                     dict_lst[idx_map[wt]]['next']['reward'] = torch.cat((dict_lst[idx_map[wt]]['next']['reward'], rwd))
                     dict_lst[idx_map[wt]]['next']['done'] = torch.cat((dict_lst[idx_map[wt]]['next']['done'], done))
+                    dict_lst[idx_map[wt]]['next']['step_count'] = torch.cat((dict_lst[idx_map[wt]]['next']['step_count'], step))
 
                 act_probs = player_lst[wt].policy(obs)
                 act_distr = Categorical(act_probs)
@@ -50,6 +53,7 @@ def coll_data(game, player_lst, num_of_coll=1):
                 dict_lst[idx_map[wt]]['observation'] = torch.cat((dict_lst[idx_map[wt]]['observation'], obs))
                 dict_lst[idx_map[wt]]['reward'] = torch.cat((dict_lst[idx_map[wt]]['reward'], rwd))
                 dict_lst[idx_map[wt]]['done'] = torch.cat((dict_lst[idx_map[wt]]['done'], done))
+                dict_lst[idx_map[wt]]['step_count'] = torch.cat((dict_lst[idx_map[wt]]['step_count'], step))
                 dict_lst[idx_map[wt]]['action'] = torch.cat((dict_lst[idx_map[wt]]['action'], act))
             else:
                 act_probs = player_lst[wt].policy(obs)
@@ -60,12 +64,13 @@ def coll_data(game, player_lst, num_of_coll=1):
         #final next state
         for wt in range(num_of_player):
             if player_lst[wt].use_nn:
-                obs, rwd, done = game.to_player_pov(wt)
+                obs, rwd, done, step = game.to_player_pov(wt)
                 dict_lst[idx_map[wt]]['next']['observation'] = torch.cat((dict_lst[idx_map[wt]]['next']['observation'], obs))
                 dict_lst[idx_map[wt]]['next']['reward'] = torch.cat((dict_lst[idx_map[wt]]['next']['reward'], rwd))
                 dict_lst[idx_map[wt]]['next']['done'] = torch.cat((dict_lst[idx_map[wt]]['next']['done'], done))
+                dict_lst[idx_map[wt]]['next']['step_count'] = torch.cat((dict_lst[idx_map[wt]]['next']['step_count'], step))
 
-    tensordict_lst = []
-    for dict in dict_lst:
-        tensordict_lst.append(TensorDict(dict, batch_size=dict['observation'].shape[0]))
-    return torch.cat(tensordict_lst)
+    tsd_lst = []
+    for d in dict_lst:
+        tsd_lst.append(TensorDict(d, batch_size=d['observation'].shape[0]))
+    return torch.cat(tsd_lst)
