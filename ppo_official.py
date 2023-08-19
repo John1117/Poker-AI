@@ -1,4 +1,4 @@
-from env import GameTorchEnv, ACT_DICT
+from env import FakeGameTorchEnv, GameTorchEnv, ACT_DICT
 from network import PolicyNetwork, ValueNetwork
 from player import UniformPolicy, Player, AlwaysCallPolicy, AlwaysFoldPolicy, AlwaysShovePolicy
 from utils import coll_data
@@ -30,7 +30,7 @@ shove_pol = AlwaysShovePolicy(num_of_act=game.num_of_act)
 # network
 hid_arch = (16, 16)
 pol_net = PolicyNetwork(num_of_obs=game.num_of_obs, num_of_act=game.num_of_act, hid_arch=hid_arch)
-val_net = ValueNetwork(num_of_obs=game.num_of_obs, hid_arch=hid_arch)
+val_net = ValueNetwork(num_of_obs=game.num_of_obs, num_of_act=game.num_of_act, hid_arch=hid_arch)
 
 # player list
 player_lst = [Player(shove_pol), Player(pol_net, val_net, use_nn=True)]
@@ -39,10 +39,10 @@ eps = 0.2
 gamma = 1.0
 lmbda = 1.0
 
-num_of_iter = 1
-num_of_coll = 1
+num_of_iter = 5000
+num_of_coll = 100
 max_buffer_size = num_of_coll * 10
-num_of_epoch = 1
+num_of_epoch = 10
 batch_per_epoch = max_buffer_size
 
 buffer = ReplayBuffer(storage=LazyTensorStorage(max_buffer_size), sampler=SamplerWithoutReplacement(), batch_size=batch_per_epoch)
@@ -51,18 +51,16 @@ lr = 3e-4
 optim = Adam(params=[{'params': pol_net.parameters()}, {'params': val_net.parameters()}], lr=lr)
 
 # training iteration start here
-#log = defaultdict(list)
-#plt.ion()
-#fig = plt.figure()
-#ax = fig.add_subplot()
+log = defaultdict(list)
+plt.ion()
+fig = plt.figure()
+ax = fig.add_subplot()
 for iter_idx in range(num_of_iter):
     data = coll_data(game, player_lst, num_of_coll)
-    print(data['done'])
-    #done_rwds = data['next']['rwd'][data['next']['done']]
-    break
-    #log['iters'].append(iter_idx)
-    #log['rwd_means'].append(done_rwds.mean().item())
-    #log['rwd_stds'].append(done_rwds.std().item())
+    final_rwd = data['next']['rwd'][data['next']['done']]
+
+    log['avg_rwd'].append(final_rwd.mean().item())
+    log['rwd_std'].append(final_rwd.std().item())
     #print(f'iter = {iter_idx}: avg rwd before training = {log["avg_rwd"][-1]}')
 
     # (?) update log prob of act, since the pol_net has changed after every epoch
@@ -70,18 +68,18 @@ for iter_idx in range(num_of_iter):
     #act_distr = Categorical(act_probs)
     #act_log_prob = act_distr.log_prob(data['act'].reshape(-1)).reshape(-1, 1)
     #data.set('act_log_prob', act_log_prob.detach())
-
+    
     for i in range(num_of_epoch):
         # evaluate val again, since the val_net has changed after every epoch
-        #val = val_net(data['obs'])
-        #next_val = val_net(data['next']['obs'])
-        #data.set('val', val)
-        #data.set(('next', 'val'), next_val)
+        val = val_net(data['obs'])
+        next_val = val_net(data['next']['obs'])
+        data.set('val', val)
+        data.set(('next', 'val'), next_val)
 
         # compute adv, detach the adv and targ_val to avoid grad tracking
-        #adv, targ_val = vec_generalized_advantage_estimate(gamma, lmbda, data['val'], data['next']['val'], data['next']['rwd'], data['next']['done'])
-        #data.set('adv', adv.detach())
-        #data.set(('targ_val'), targ_val.detach())
+        adv, targ_val = vec_generalized_advantage_estimate(gamma, lmbda, data['val'], data['next']['val'], data['next']['rwd'], data['next']['done'])
+        data.set('adv', adv.detach())
+        data.set(('targ_val'), targ_val.detach())
 
         # store data into buffer for later random sampling
         buffer.extend(data)

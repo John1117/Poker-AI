@@ -3,7 +3,9 @@ import torch
 from torch import nn
 import warnings
 from env import DEFAULT_DTYPE
+from tensordict import TensorDict
 from tensordict.nn import TensorDictModule
+from torch.distributions.categorical import Categorical
 
 
 def get_nn_arch(num_of_input=26, num_of_output=22, hid_arch=None):
@@ -19,7 +21,7 @@ def get_nn_arch(num_of_input=26, num_of_output=22, hid_arch=None):
     return nn_arch
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, num_of_obs=26, num_of_act=22, hid_arch=None, dtype=DEFAULT_DTYPE, device=None):
+    def __init__(self, num_of_obs=26, num_of_act=22, hid_arch=None, dtype=DEFAULT_DTYPE, device='cpu'):
         super().__init__()
 
         nn_arch = get_nn_arch(num_of_obs, num_of_act, hid_arch)
@@ -43,7 +45,7 @@ class PolicyNetwork(nn.Module):
         return self.model(obs)
     
 class ValueNetwork(nn.Module):
-    def __init__(self, num_of_obs=26, hid_arch=None, dtype=DEFAULT_DTYPE, device=None):
+    def __init__(self, num_of_obs=26, hid_arch=None, dtype=DEFAULT_DTYPE, device='cpu'):
         super().__init__()
         
         nn_arch = get_nn_arch(num_of_obs, 1, hid_arch)
@@ -64,14 +66,4 @@ class ValueNetwork(nn.Module):
             #warnings.warn('input of policy net should be Tensor')
             obs = torch.Tensor(obs)
         return self.model(obs)
-
-
-if __name__=='__main__':
-    obs = torch.rand(26)
-    pn = PolicyNetwork(hid_arch=(40,40))
-    pnm = TensorDictModule(pn, ['obs'], ['act'])
-    print('\n', pnm(obs))
-
-    vn = ValueNetwork(hid_arch=(40,40))
-    print('\n', vn)
     
