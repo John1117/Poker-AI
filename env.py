@@ -2,7 +2,6 @@
 import torch as tc
 from poker import check_rank
 
-
 # %%
 def make_act_dict(odd_incr=0.05, dtype=tc.float32, device='cpu'):
     odds = tc.arange(start=odd_incr, end=1, step=odd_incr, dtype=dtype, device=device)
@@ -15,15 +14,29 @@ def make_act_dict(odd_incr=0.05, dtype=tc.float32, device='cpu'):
     act_dict['bet_sizes'] = bet_sizes
 
     act_dict[0] = {'code': 'F', 'name': 'fold'}
-    act_dict[1] = {'code': 'X', 'name': 'check'}
+    act_dict[1] = {'code': 'X', 'name': 'check'} 
     act_dict[2] = {'code': 'C', 'name': 'call'}
     act_dict[3] = {'code': 'A', 'name': 'all in'}
     for i in range(n_default_act, n_act):
         act_dict[i] = {'code': 'B', 'name': f'bet {(bet_sizes[i-n_default_act]*100).round(decimals=0).to(tc.int64)}% of pot', 'bet_size': bet_sizes[i-n_default_act]}
     return act_dict
-act_dict = make_act_dict(0.05)
-act_dict
 
+def encode_act_str(act_str='I'):
+    assert isinstance(act_str, str)
+    
+    act_bin = '1' # default inaction
+    for a in act_str:
+        if a == 'C': # check, call, limp
+            act_bin += '0'
+        elif a == 'B': # open, bet, raise, all-in
+            act_bin += '1'
+        elif a == 'N': # no player
+            act_bin = '0'
+    
+    code = int(act_bin, 2)
+    if act_str[-1] == 'F':
+        code *= -1
+    return code
 
 # %%
 class GameTorchEnv():
@@ -77,7 +90,6 @@ class GameTorchEnv():
         self.player_puts = self.player_bets.clone()
         self.player_chips = self.player_init_chips - self.player_puts
 
-
         # encoded act line
         self.player_lines = self.occupied.to(dtype=tc.int64)
 
@@ -92,16 +104,15 @@ class GameTorchEnv():
 
         # player state, the first 3 are temporary status in a betting round, the last 2 are permanent status in a game
         self.who_check, self.who_call, self.who_raise, self.who_fold, self.who_shove = tc.zeros((5, self.max_n_player), dtype=tc.bool, device=self.device)
-        self.who_raise[self.BB_idx] = True
+        self.who_raise[self.BB_idx] = True  
 
         # player rwd and done
         self.player_rwds = tc.zeros((self.max_n_player, 1), dtype=self.dtype, device=self.device)
         self.player_dones = tc.zeros((self.max_n_player, 1), dtype=tc.bool, device=self.device)
-
     
     def next(self, act_key):
         # look up the act in act_dict
-        act_key = act_key.to(tc.int64).item() #to python int64
+        #act_key = act_key.to(tc.int64).item() # to python int64
         assert act_key in self.act_dict
         act = self.act_dict[act_key]
 
@@ -114,7 +125,7 @@ class GameTorchEnv():
             self.__call()
         elif act['code'] == 'A':
             self.__shove()
-        else: # act['code'] == 'B':
+        else: # act['code'] == 'B': 
             self.__bet(act['bet_size'])
 
         is_over = self.__check_game_state()
@@ -145,9 +156,13 @@ class GameTorchEnv():
     
     def count_eff_pot(self, i):
         my_total_bet = self.player_puts[i]
-        who_cover_me = self.player_puts >= my_total_bet
+        my_remain_chip = self.player_chips[i]
+
+        who_cover_me = [put for put in self.player_puts if put >= (my_total_bet + my_remain_chip)]
+        who_non_cover_me = [put for put in self.player_puts if put < (my_total_bet + my_remain_chip)]
         # effective pot = sum of the chips whose covered by me + num of players including myself whose chips cover me * my total bet
-        eff_pot = self.player_puts[~who_cover_me].sum() + who_cover_me.sum() * my_total_bet 
+        
+        eff_pot = sum(who_non_cover_me) + sum(who_cover_me) * my_total_bet 
         return eff_pot
     
     def check_valid_act(self, i):
@@ -167,8 +182,7 @@ class GameTorchEnv():
         valid_bets = (add_to_min_raise <= my_bets) & (my_bets < my_chip) & (my_bets < max_opp_chip)
         valid_act = tc.cat([tc.tensor([can_fold, can_check, can_call, True]), valid_bets]) # can_shove is always True
         return valid_act
-
-
+        
     def __fold(self):
         i = self.whose_turn
         self.player_bets[i] = 0
@@ -253,7 +267,6 @@ class GameTorchEnv():
         self.whose_turn = i
         return self.is_over
 
-
     def __check_winner(self):
         if self.showdown: # if all players raise all-in or it's post-river, showdown is true
             player_ranks = tc.zeros(self.max_n_player, dtype=tc.int64, device=self.device)
@@ -291,26 +304,31 @@ class GameTorchEnv():
         self.player_dones = tc.ones((self.max_n_player, 1, 1), dtype=tc.bool, device=self.device)
 
 
-game = GameTorchEnv(n_player=3)    
-game.reset()
-print(game.player_hands)
+# %% 
+if __name__ == '__main__':
 
+    ##
+    n_player = 3
+    init_chip = 100
 
-
-# %%
-def encode_act_str(act_str='I'):
-    assert isinstance(act_str, str)
+    game = GameTorchEnv(n_player=n_player)
+    game.reset(init_chip)
     
-    act_bin = '1' # default inaction
-    for a in act_str:
-        if a == 'C': # check, call, limp
-            act_bin += '0'
-        elif a == 'B': # open, bet, raise, all-in
-            act_bin += '1'
-        elif a == 'N': # no player
-            act_bin = '0'
-    
-    code = int(act_bin, 2)
-    if act_str[-1] == 'F':
-        code *= -1
-    return code
+    ### 
+    while game.is_over == False :
+
+        play_to_act = game.whose_turn
+        obs, rwd, dones, valid = game.to_player_pov(play_to_act)
+        print(obs)
+        
+        # act
+        game.next(7)
+        obs, rwd, dones, valid = game.to_player_pov(play_to_act)
+        print(obs)
+
+
+        
+
+
+
+ # %%
