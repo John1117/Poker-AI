@@ -1,69 +1,69 @@
 import numpy as np
 import torch
 from torch import nn
-import warnings
-from env import DEFAULT_DTYPE
-from tensordict import TensorDict
-from tensordict.nn import TensorDictModule
-from torch.distributions.categorical import Categorical
 
 
-def get_nn_arch(num_of_input=26, num_of_output=22, hid_arch=None):
-    nn_arch = (num_of_input,)
-    if hid_arch is None:
-        nn_arch += (num_of_output,)
-    elif isinstance(hid_arch, int) and hid_arch > 0:
-        nn_arch += (hid_arch, num_of_output)
-    elif isinstance(hid_arch, (list, tuple)) and all(isinstance(n_neu, int) and n_neu > 0 for n_neu in hid_arch):
-        nn_arch += tuple(hid_arch) + (num_of_output,)
+def get_nn_arch(n_input=72, n_output=22, hidden_arch=None):
+    nn_arch = (n_input,)
+    if hidden_arch is None:
+        nn_arch += (n_output,)
+    elif isinstance(hidden_arch, int) and hidden_arch > 0:
+        nn_arch += (hidden_arch, n_output)
+    elif isinstance(hidden_arch, (list, tuple)) and all(isinstance(n_neuron, int) and n_neuron > 0 for n_neuron in hidden_arch):
+        nn_arch += tuple(hidden_arch) + (n_output,)
     else:
-        raise TypeError('hid_arch should be None, positive int, or 1d-list/tuple of positive int')
+        raise TypeError('hidden_arch should be None, positive int, or 1d-list/tuple of positive int')
     return nn_arch
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, num_of_obs=26, num_of_act=22, hid_arch=None, dtype=DEFAULT_DTYPE, device='cpu'):
+    def __init__(self, n_obs=27, n_act=22, hidden_arch=None, dtype=torch.float64, device='cpu'):
         super().__init__()
 
-        nn_arch = get_nn_arch(num_of_obs, num_of_act, hid_arch)
+        nn_arch = get_nn_arch(n_obs, n_act, hidden_arch)
         
-        n_lyr = len(nn_arch)
-        seq = nn.Sequential()
-        for i in range(n_lyr-1):
-            if i == n_lyr-2:
-                seq.append(nn.Linear(nn_arch[i], nn_arch[i+1], dtype=dtype, device=device))
-                seq.append(nn.Softmax(dim=-1))
+        n_layer = len(nn_arch)
+        self.model = nn.Sequential()
+        for i in range(n_layer-1):
+            if i == n_layer-2:
+                final_layer = nn.Linear(nn_arch[i], nn_arch[i+1], dtype=dtype, device=device)
+                # with torch.no_grad():
+                #     nn.init.zeros_(final_layer.weight)
+                #     final_layer.weight[0] = 1
+                #     final_layer.weight[2] = 1
+                #     nn.init.zeros_(final_layer.bias)
+                #     final_layer.bias[0] = 1
+                #     final_layer.bias[2] = 1
+                self.model.append(final_layer)
+                self.model.append(nn.Softmax(dim=-1))
             else:
-                seq.append(nn.Linear(nn_arch[i], nn_arch[i+1], dtype=dtype, device=device))
-                seq.append(nn.ReLU())
-
-        self.model = seq
+                self.model.append(nn.Linear(nn_arch[i], nn_arch[i+1], dtype=dtype, device=device))
+                self.model.append(nn.ReLU())
 
     def forward(self, obs):
-        if isinstance(obs, (int, float, list, tuple, range, np.ndarray)):
-            #warnings.warn('input of policy net should be Tensor')
-            obs = torch.Tensor(obs)
+        # if isinstance(obs, (int, float, list, tuple, range, np.ndarray)):
+        #     #warnings.warn('input of policy net should be Tensor')
+        #     obs = torch.Tensor(obs)
         return self.model(obs)
     
 class ValueNetwork(nn.Module):
-    def __init__(self, num_of_obs=26, hid_arch=None, dtype=DEFAULT_DTYPE, device='cpu'):
+    def __init__(self, n_obs=27, hidden_arch=None, dtype=torch.float64, device='cpu'):
         super().__init__()
         
-        nn_arch = get_nn_arch(num_of_obs, 1, hid_arch)
+        nn_arch = get_nn_arch(n_obs, 1, hidden_arch)
 
-        n_lyr = len(nn_arch)
-        seq = nn.Sequential()
-        for i in range(n_lyr-1):
-            if i == n_lyr-2:
-                seq.append(nn.Linear(nn_arch[i], nn_arch[i+1], dtype=dtype, device=device))
+        n_layer = len(nn_arch)
+        self.model = nn.Sequential()
+        for i in range(n_layer-1):
+            if i == n_layer-2:
+                self.model.append(nn.Linear(nn_arch[i], nn_arch[i+1], dtype=dtype, device=device))
             else:
-                seq.append(nn.Linear(nn_arch[i], nn_arch[i+1], dtype=dtype, device=device))
-                seq.append(nn.ReLU())
+                self.model.append(nn.Linear(nn_arch[i], nn_arch[i+1], dtype=dtype, device=device))
+                self.model.append(nn.ReLU())
 
-        self.model = seq
 
     def forward(self, obs):
-        if isinstance(obs, (int, float, list, tuple, range, np.ndarray)):
-            #warnings.warn('input of policy net should be Tensor')
-            obs = torch.Tensor(obs)
+        # if isinstance(obs, (int, float, list, tuple, range, np.ndarray)):
+        #     #warnings.warn('input of policy net should be Tensor')
+        #     obs = torch.Tensor(obs)
         return self.model(obs)
-    
+
