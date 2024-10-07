@@ -7,102 +7,94 @@ def check_dim(arr):
 
 
 class BasePolicy():
-    def __init__(self, n_act=22, dtype=np.float_):
-        self.__N_ACT = n_act
-        self.__DTYPE = dtype
+    def __init__(self, n_action=22, dtype=np.float_):
+        self.n_action = n_action
+        self.dtype = dtype
 
-    @property
-    def n_act(self):
-        return self.__N_ACT
-    
-    @property
-    def dtype(self):
-        return self.__DTYPE
-
-    def __call__(self, obs=None, valid_act_filter=None):
+    def __call__(self, observation=None, valid_action_filter=None):
         NotImplemented
 
 
 class UniformPolicy(BasePolicy):
 
-    def __init__(self, n_act=22, dtype=np.float_):
-        super().__init__(n_act, dtype)
+    def __init__(self, n_action=22, dtype=np.float_):
+        super().__init__(n_action, dtype)
         
-    def __call__(self, obs=None, valid_act_filter=None):
-        obs = check_dim(obs)
-        valid_act_filter = check_dim(valid_act_filter)
-        return (valid_act_filter / valid_act_filter.sum(axis=1, keepdims=True)).astype(self.dtype)
+    def __call__(self, observation=None, valid_action_filter=None):
+        observation = check_dim(observation)
+        valid_action_filter = check_dim(valid_action_filter)
+        return (valid_action_filter / valid_action_filter.sum(axis=1, keepdims=True)).astype(self.dtype)
     
 
 class AlwaysFoldPolicy(BasePolicy):
 
-    def __init__(self, n_act=22, dtype=np.float_):
-        super().__init__(n_act, dtype)
+    def __init__(self, n_action=22, dtype=np.float_):
+        super().__init__(n_action, dtype)
         
-    def __call__(self, obs=None, valid_act_filter=None):
-        obs = check_dim(obs)
-        valid_act_filter = check_dim(valid_act_filter)
-        act_probs = np.zeros((len(obs), self.n_act), dtype=self.dtype)
-        can_fold = valid_act_filter[:, 0:1]
-        act_probs[:, 0:2] = np.concatenate((can_fold, ~can_fold), axis=1)
-        return act_probs
+    def __call__(self, observation=None, valid_action_filter=None):
+        observation = check_dim(observation)
+        valid_action_filter = check_dim(valid_action_filter)
+        action_probs = np.zeros((len(observation), self.n_action), dtype=self.dtype)
+        can_fold = valid_action_filter[:, 0:1]
+        action_probs[:, 0:2] = np.concatenate((can_fold, ~can_fold), axis=1)
+        return action_probs
     
 
 class AlwaysCallPolicy(BasePolicy):
 
-    def __init__(self, n_act=22, dtype=np.float_):
-        super().__init__(n_act, dtype)
+    def __init__(self, n_action=22, dtype=np.float_):
+        super().__init__(n_action, dtype)
 
-    def __call__(self, obs=None, valid_act_filter=None):
-        obs = check_dim(obs)
-        valid_act_filter = check_dim(valid_act_filter)
-        act_probs = np.zeros((len(obs), self.n_act), dtype=super().dtype)
-        can_call = valid_act_filter[:, 1:2]
-        act_probs[:, 0:2] = np.concatenate((~can_call, can_call), axis=1)
-        return act_probs
+    def __call__(self, observation=None, valid_action_filter=None):
+        observation = check_dim(observation)
+        valid_action_filter = check_dim(valid_action_filter)
+        action_probs = np.zeros((len(observation), self.n_action), dtype=self.dtype)
+        can_call = valid_action_filter[:, 1:2]
+        action_probs[:, 0:2] = np.concatenate((~can_call, can_call), axis=1)
+        return action_probs
     
 
 class AlwaysAllInPolicy(BasePolicy):
 
-    def __init__(self, n_act=22, dtype=np.float_):
-        super().__init__(n_act, dtype)
+    def __init__(self, n_action=22, dtype=np.float_):
+        super().__init__(n_action, dtype)
         
-    def __call__(self, obs=None, valid_act_filter=None):
-        obs = check_dim(obs)
-        valid_act_filter = check_dim(valid_act_filter)
-        act_probs = np.zeros((len(obs), self.n_act), dtype=self.dtype)
-        can_all_in = valid_act_filter[:, 2:3]
-        act_probs[:, 0:4:2] = np.concatenate((~can_all_in, can_all_in), axis=1)
-        return act_probs
+    def __call__(self, observation=None, valid_action_filter=None):
+        observation = check_dim(observation)
+        valid_action_filter = check_dim(valid_action_filter)
+        action_probs = np.zeros((len(observation), self.n_action), dtype=self.dtype)
+        can_all_in = valid_action_filter[:, 2:3]
+        action_probs[:, 0:4:2] = np.concatenate((~can_all_in, can_all_in), axis=1)
+        return action_probs
     
 
 class NeuralNetworkPolicy(BasePolicy):
 
-    def __init__(self, n_act=22, dtype=np.float_, model=None):
-        super().__init__(n_act, dtype)
+    def __init__(self, n_action=22, dtype=np.float_, model=None):
+        super().__init__(n_action, dtype)
         self.model = model
 
-    def __call__(self, obs=None, valid_act_filter=None, return_torch_tensor=False):
-        obs = check_dim(obs)
-        if isinstance(obs, np.ndarray):
-            obs = torch.tensor(obs)
-        act_probs = self.model(obs)
+    def __call__(self, observation=None, valid_action_filter=None, return_torch_tensor=False):
+        observation = check_dim(observation)
+        if isinstance(observation, np.ndarray):
+            observation = torch.tensor(observation)
+        action_probs = self.model(observation)
         if return_torch_tensor:
-            return act_probs
+            return action_probs
         else:
-            return act_probs.detach().numpy()
+            return action_probs.detach().numpy()
         
 class NeuralNetworkEvaluator():
 
     def __init__(self, dtype=np.float_, model=None):
         self.model = model
 
-    def __call__(self, obs=None, return_torch_tensor=False):
-        obs = check_dim(obs)
-        if isinstance(obs, np.ndarray):
-            obs = torch.tensor(obs)
-        act_probs = self.model(obs)
+    def __call__(self, observation=None, return_torch_tensor=False):
+        observation = check_dim(observation)
+        if isinstance(observation, np.ndarray):
+            observation = torch.tensor(observation)
+        action_probs = self.model(observation)
         if return_torch_tensor:
-            return act_probs
+            return action_probs
         else:
-            return act_probs.detach().numpy()
+            return action_probs.detach().numpy()

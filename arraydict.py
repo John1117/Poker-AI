@@ -119,8 +119,8 @@ class ArrayDict(dict):
         self.update(flatten_dict(s, parent_key=None, sep=sep))
         return self
     
-    def copy(self):
-        return deepcopy(self)
+    # def copy(self):
+    #     return deepcopy(self)
 
 def flatten_dict(nested_dict, parent_key=None, sep='_'):
     items = []
@@ -145,7 +145,6 @@ data = {
     'outer3': [10, 11, 12]
 }
 ad = ArrayDict(data)
-d = ad.copy()
-print(d is ad)
-print(d['outer1'] is ad['outer1'])
+ad.flatten()
+
 # %%

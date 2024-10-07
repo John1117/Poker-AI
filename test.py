@@ -17,13 +17,13 @@ from torch.distributions.categorical import Categorical
 # %%
 game = Game(n_player=2)
 
-always_all_in_policy = AlwaysAllInPolicy(n_act=game.n_act)
+always_all_in_policy = AlwaysAllInPolicy(n_action=game.n_action)
 
 hidden_arch = (64, 64)
-policy_network = PolicyNetwork(n_obs=game.n_obs, n_act=game.n_act, hidden_arch=hidden_arch)
-value_network = ValueNetwork(n_obs=game.n_obs, hidden_arch=hidden_arch)
+policy_network = PolicyNetwork(n_observation=game.n_observation, n_action=game.n_action, hidden_arch=hidden_arch)
+value_network = ValueNetwork(n_observation=game.n_observation, hidden_arch=hidden_arch)
 
-nn_policy = NeuralNetworkPolicy(n_act=game.n_act, model=policy_network)
+nn_policy = NeuralNetworkPolicy(n_action=game.n_action, model=policy_network)
 nn_evaluator = NeuralNetworkEvaluator(model=value_network)
 
 policies = [always_all_in_policy, nn_policy]

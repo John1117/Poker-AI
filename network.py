@@ -16,10 +16,10 @@ def get_nn_arch(n_input=72, n_output=22, hidden_arch=None):
     return nn_arch
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, n_obs=27, n_act=22, hidden_arch=None, dtype=torch.float64, device='cpu'):
+    def __init__(self, n_observation=27, n_action=22, hidden_arch=None, dtype=torch.float64, device='cpu'):
         super().__init__()
 
-        nn_arch = get_nn_arch(n_obs, n_act, hidden_arch)
+        nn_arch = get_nn_arch(n_observation, n_action, hidden_arch)
         
         n_layer = len(nn_arch)
         self.model = nn.Sequential()
@@ -46,10 +46,10 @@ class PolicyNetwork(nn.Module):
         return self.model(obs)
     
 class ValueNetwork(nn.Module):
-    def __init__(self, n_obs=27, hidden_arch=None, dtype=torch.float64, device='cpu'):
+    def __init__(self, n_observation=27, hidden_arch=None, dtype=torch.float64, device='cpu'):
         super().__init__()
         
-        nn_arch = get_nn_arch(n_obs, 1, hidden_arch)
+        nn_arch = get_nn_arch(n_observation, 1, hidden_arch)
 
         n_layer = len(nn_arch)
         self.model = nn.Sequential()
